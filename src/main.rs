@@ -75,6 +75,7 @@ fn bin_packing_weighted_ffd(
         }
         if !placed {
             // Create a new bin if the item didn't fit in any existing bin.
+            // Naive for sould be good for now
             let mut new_bin = Bin::new(core_capacity, disk_capacity);
             new_bin.add_item(cores, disk, core_weight, disk_weight);
             bins.push(new_bin);
@@ -85,7 +86,6 @@ fn bin_packing_weighted_ffd(
 }
 
 fn main() {
-    // Example items and bin capacities.
     let items = vec![
         (4, 100), // 4 cores, 100 GB
         (2, 50),
@@ -115,8 +115,8 @@ fn main() {
         );
     }
 
-    let core_weight = 0.2; // 60% priority to core usage.
-    let disk_weight = 0.8; // 40% priority to disk usage.
+    let core_weight = 0.2; // 20% priority to core usage.
+    let disk_weight = 0.8; // 80% priority to disk usage.
     println!("\ncore_weight: {}\ndisk_weight: {}\n", core_weight, disk_weight);
     let bins = bin_packing_weighted_ffd(items, core_capacity, disk_capacity, core_weight, disk_weight);
     for (i, bin) in bins.iter().enumerate() {
