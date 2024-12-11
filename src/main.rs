@@ -1,72 +1,93 @@
+use std::collections::VecDeque;
+
+// Weighted First-Fit Decreasing (FFD) heuristic
+// https://en.wikipedia.org/wiki/First-fit_bin_packing
+
+
+
+
 #[derive(Debug)]
-struct Server {
+struct Bin {
     core_capacity: u32,
     disk_capacity: u32,
-    orders: Vec<(u32, u32)>, // Each order is (cores, disk space)
+    items: Vec<(u32, u32)>, // Each item is (cores, disk space)
 }
 
-impl Server {
-    // this info needs to come from the indexer or chain
+impl Bin {
     fn new(core_capacity: u32, disk_capacity: u32) -> Self {
-        Server {
+        Bin {
             core_capacity,
             disk_capacity,
-            orders: Vec::new(),
+            items: Vec::new(),
         }
     }
 
-    fn add_order(&mut self, cores: u32, disk: u32) -> bool {
-        if self.remaining_cores() >= cores && self.remaining_disk_space() >= disk {
-            self.orders.push((cores, disk));
+    fn add_item(&mut self, cores: u32, disk: u32, core_weight: f32, disk_weight: f32) -> bool {
+        let core_remaining = self.remaining_core_capacity() as f32;
+        let disk_remaining = self.remaining_disk_capacity() as f32;
+        let core_needed = cores as f32;
+        let disk_needed = disk as f32;
+
+        // Check if adding the item fits within weighted capacities.
+        if core_remaining >= core_needed * core_weight && disk_remaining >= disk_needed * disk_weight {
+            self.items.push((cores, disk));
             true
         } else {
             false
         }
     }
-    fn remaining_cores(&self) -> u32 {
-        self.core_capacity - self.orders.iter().map(|(c, _)| c).sum::<u32>()
+
+    fn remaining_core_capacity(&self) -> u32 {
+        self.core_capacity - self.items.iter().map(|(c, _)| c).sum::<u32>()
     }
 
-    /// Get the remaining disk capacity of the server.
-    fn remaining_disk_space(&self) -> u32 {
-        self.disk_capacity - self.orders.iter().map(|(_, d)| d).sum::<u32>()
+    fn remaining_disk_capacity(&self) -> u32 {
+        self.disk_capacity - self.items.iter().map(|(_, d)| d).sum::<u32>()
     }
 }
 
-fn bin_packing_ffd_multi(
-    orders: Vec<(u32, u32)>,
+
+fn bin_packing_weighted_ffd(
+    items: Vec<(u32, u32)>,
     core_capacity: u32,
     disk_capacity: u32,
-) -> Vec<Server> {
-    
-    let mut sorted_orders = orders.clone();
-    sorted_orders.sort_unstable_by(|a, b| b.cmp(a));
-    
-    let mut servers: Vec<Server> = Vec::new();
+    core_weight: f32,
+    disk_weight: f32,
+) -> Vec<Bin> {
+    assert!((core_weight + disk_weight - 1.0).abs() < 1e-6, "Weights must sum to 1.0");
 
-    for (cores, disk) in sorted_orders {
+    let mut sorted_items = items.clone();
+    sorted_items.sort_unstable_by(|a, b| {
+        let a_value = (a.0 as f32) * core_weight + (a.1 as f32) * disk_weight;
+        let b_value = (b.0 as f32) * core_weight + (b.1 as f32) * disk_weight;
+        b_value.partial_cmp(&a_value).unwrap()
+    });
+
+    let mut bins: Vec<Bin> = Vec::new();
+
+    for (cores, disk) in sorted_items {
         let mut placed = false;
-        for server in &mut servers {
-            if server.add_order(cores, disk) {
+        for bin in &mut bins {
+            if bin.add_item(cores, disk, core_weight, disk_weight) {
                 placed = true;
                 break;
             }
         }
         if !placed {
-            // Create a new server if the order didn't fit in any existing server.
-            let mut new_server = Server::new(core_capacity, disk_capacity);
-            new_server.add_order(cores, disk);
-            servers.push(new_server);
+            // Create a new bin if the item didn't fit in any existing bin.
+            let mut new_bin = Bin::new(core_capacity, disk_capacity);
+            new_bin.add_item(cores, disk, core_weight, disk_weight);
+            bins.push(new_bin);
         }
     }
 
-    servers
+    bins
 }
 
 fn main() {
-    // contrived example to actually make anything happen
-    let orders = vec![
-        (4, 100), 
+    // Example items and bin capacities.
+    let items = vec![
+        (4, 100), // 4 cores, 100 GB
         (2, 50),
         (6, 150),
         (1, 30),
@@ -75,19 +96,37 @@ fn main() {
         (2, 60),
         (4, 90),
     ];
-    let core_capacity = 10; // Each server has 10 cores.
-    let disk_capacity = 200; // Each server has 200 GB of disk space.
+    let core_capacity = 10; // Each server/bin has 10 cores.
+    let disk_capacity = 200; // Each server/bin has 200 GB of disk space.
 
 
-    let servers = bin_packing_ffd_multi(orders, core_capacity, disk_capacity);
+    let core_weight = 0.6; // 60% priority to core usage.
+    let disk_weight = 0.4; // 40% priority to disk usage.
 
-    for (i, server) in servers.iter().enumerate() {
+    let bins = bin_packing_weighted_ffd(items.clone(), core_capacity, disk_capacity, core_weight, disk_weight);
+    for (i, bin) in bins.iter().enumerate() {
         println!(
-            "Server {}: {:?}, Remaining Cores: {}, Remaining Disk: {}",
+            "Bin {}: {:?}, Remaining Cores: {}, Remaining Disk: {}",
             i + 1,
-            server.orders,
-            server.remaining_cores(),
-            server.remaining_disk_space()
+            bin.items,
+            bin.remaining_core_capacity(),
+            bin.remaining_disk_capacity()
         );
     }
+
+    /*
+    let core_weight = 0.2; // 60% priority to core usage.
+    let disk_weight = 0.8; // 40% priority to disk usage.
+
+    let bins = bin_packing_weighted_ffd(items, core_capacity, disk_capacity, core_weight, disk_weight);
+    for (i, bin) in bins.iter().enumerate() {
+        println!(
+            "Bin {}: {:?}, Remaining Cores: {}, Remaining Disk: {}",
+            i + 1,
+            bin.items,
+            bin.remaining_core_capacity(),
+            bin.remaining_disk_capacity()
+        );
+    }
+    */
 }
