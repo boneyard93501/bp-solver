@@ -38,11 +38,11 @@ impl Bin {
     }
 
     fn remaining_core_capacity(&self) -> u32 {
-        self.core_capacity - self.items.iter().map(|(c, _)| c).sum::<u32>()
+        self.core_capacity.saturating_sub(self.items.iter().map(|(c, _)| c).sum::<u32>())
     }
 
     fn remaining_disk_capacity(&self) -> u32 {
-        self.disk_capacity - self.items.iter().map(|(_, d)| d).sum::<u32>()
+        self.disk_capacity.saturating_sub(self.items.iter().map(|(_, d)| d).sum::<u32>())
     }
 }
 
@@ -103,6 +103,7 @@ fn main() {
     let core_weight = 0.6; // 60% priority to core usage.
     let disk_weight = 0.4; // 40% priority to disk usage.
 
+    println!("\ncore_weight: {}\ndisk_weight{}\n", core_weight, disk_weight);
     let bins = bin_packing_weighted_ffd(items.clone(), core_capacity, disk_capacity, core_weight, disk_weight);
     for (i, bin) in bins.iter().enumerate() {
         println!(
@@ -114,10 +115,9 @@ fn main() {
         );
     }
 
-    /*
     let core_weight = 0.2; // 60% priority to core usage.
     let disk_weight = 0.8; // 40% priority to disk usage.
-
+    println!("\ncore_weight: {}\ndisk_weight{}\n", core_weight, disk_weight);
     let bins = bin_packing_weighted_ffd(items, core_capacity, disk_capacity, core_weight, disk_weight);
     for (i, bin) in bins.iter().enumerate() {
         println!(
@@ -128,5 +128,4 @@ fn main() {
             bin.remaining_disk_capacity()
         );
     }
-    */
 }
