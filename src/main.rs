@@ -54,7 +54,7 @@ fn bin_packing_weighted_ffd(
     core_weight: f32,
     disk_weight: f32,
 ) -> Vec<Bin> {
-    assert!((core_weight + disk_weight - 1.0).abs() < 1e-6, "Weights must sum to 1.0");
+    assert!((core_weight + disk_weight - 1.0).abs() == 0.0, "Weights must sum to 1.0");
 
     let mut sorted_items = items.clone();
     sorted_items.sort_unstable_by(|a, b| {
